@@ -1,0 +1,390 @@
+"""
+
+Author: Simon Nachtergaele
+This script uses xarray to visualize elemental distribution.
+2022-2023: LIBS-SCReeN project
+
+"""
+
+import xarray as xr
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import matplotlib.gridspec as gridspec
+
+""" Fill in the following things before executing the script """
+
+# Choose sample
+sample = "Ivan_13062023_2023-06-13_16-36-52.nc"
+el_visualized = ['Zn', 'Ca I', 'Hg', 'Pb', 'Fe', 'Si', 'Cd', 'Cu', 'Ba', 'In', 'Tl', 'Ge']
+
+# Optional things:
+# Do you need to loop through the dataset?
+loop = False
+make_gif = False
+max_int_threshold = 50000
+
+
+"""
+Explore dataset
+"""
+# Load data
+os.chdir("../Datacubes/Input")
+
+# Load dataset
+ds = xr.open_dataset(sample)
+ds.load()
+print(ds)
+
+print('dimensions')
+
+dim = ds.dims
+print(dim)
+
+if dim['x'] > dim['y']:
+    vertical_scan = True
+else:
+    vertical_scan = False
+
+print('coords')
+print(ds.coords)
+
+print('variables')
+print(ds.variables)
+
+print('values')
+print(ds.values())
+
+print('bands')
+wavelengths = ds['bands']
+print(len(wavelengths))
+list_wavelengths = wavelengths.to_numpy()
+bands = list()
+dict = dict()
+for index, value in enumerate(list_wavelengths):
+    dict[index] = value
+print(dict)
+
+print('x')
+print(ds['x'])
+
+"""
+Plotting
+"""
+
+# Adding new data variables to the dataset like this:
+if sample == "mapping_psilo_100x100.nc":
+    ds['mapping'] = ds.__xarray_dataarray_variable__
+else:
+    ds_map = ds.mapping
+
+print('bands')
+bands = dim['bands']
+print(bands)
+
+
+# Loop through the dataset with this:
+range_loop = round(float(bands)*0.25)
+if loop:
+    for i in range(range_loop):
+        print(i)
+        map = ds.mapping.isel(bands=[i*4])
+        max_int = np.max(np.array(map))
+        print(max_int)
+
+        if max_int > max_int_threshold:
+            map.plot(cmap=plt.cm.Greys)
+            plt.show(block=False)
+            plt.pause(0.5)
+            plt.close()
+
+# Specify the wavelengths for each element of interest
+elif len(wavelengths) == 18424:
+    el_wavelength_dict = {
+        "Zn": 206, #202.6
+        "Pb": 732, #220.4
+        "Si": 1691, #251.6
+        "Fe": 1963, #260.1
+        "Ca I": 6972, #227.57
+        "Ca II": 5997, #370.6
+        "Ca III": 3262, #298.7 nm
+        "Li": 6800, #391.4
+        "Mg": 2792, #285.2
+        "Mg2": 2626, #280.3
+        "O": 6933, #394.7
+        "Obis": 15149,
+        "C": 1571, #247.8
+        "Mn": 7308, #403.8
+        "As": 1158,  # 235.0
+        "Cd": 5651,  # 361.05
+        "Ag": 4862,  # 338.29
+        "Cu": 4501,  # 327.4
+        "Cu2": 13130,  # 521.8
+        "Cu3": 529,  # 213.6 is bad and mixes with sphalerite
+        "Cu4": 235,  # 203.6 nm
+        "Sb": 2881,  # 287.8
+        "Tl": 6260,  # 377.57
+        "Ge": 3446,  # 303.91
+        "Ni": 12523,  # 508.16 nm# 208.6nm,  300.3 (3317, overlap with Si?), 352.45 (5347, overlap with Si)
+        "V": 7631,  # 411.2
+        "Ba": 6715,  # 389.2
+        "S": 10290,  # 469.5
+        "S2": 14210,  # 543.4
+        # "X": 3237, #298.1
+        "X": 2893,  # 288.13, which element???? Cd
+        "Sm": 5736,  # 363.4 nm
+        "Sr": 7480,  # 407.8 nm
+        "Hg": 1757,  # 253.7 nm
+        "Hg 2": 16405, #546.08 nm
+        "Cr": 3387,  # 302.2 nm
+        "Cr2": 294,  # 205.6 nm
+        "Al": 3642,  # 237.3 (1246), 309.3 (3642), 396.16 (6990) nm
+
+        "Ga": 7897,  # 417.2,
+        "Ga 2": 395,  # 209.07... 403.3 has interference with Ca
+        "Ge": 3446,  # 303.9
+        "Ge 2": 2123,  # 265.1
+        "In": 1040,  # 230.6
+        "In 2": 2313,  # 207.9nm 410.18 also ...451.2 has interference with Ca
+        "Co": 162,  # 201.1,
+        "Co 2": 1845,  # ... 256.4
+        "Cd": 986,  # 228.8,
+        "Cd 2": 553,  # 214.4
+        "P": 569,  # 214.9 nm # 213.6 nm overlaps with Zn
+        "K": 9386, # 404.5 nm
+        "Rb": 934, # 629.8 nm
+        "Au 1": 3463, #242.78
+        "Au 2": 4255, #267.6
+        "Au 3": 5803, #312.3
+    }
+
+    # If there is the mistake with the spectrometer order, correct the values of the dataframe
+    el_wavelength_dict_modified = {}
+
+    for key, value in el_wavelength_dict.items():
+        channel = value + 2048
+        el_wavelength_dict_modified[key] = channel
+
+    el_wavelength_dict = el_wavelength_dict_modified
+
+"""
+Make a max intensity map to visualize the ablation behaviour because it is clear that some minerals
+e.g. quartz are not ablated enough by the laser 
+"""
+
+ds_max = ds.max(dim='bands')
+print('ds_max')
+print(ds_max)
+
+map_max_int = ds_max.mapping
+map_max_int.plot(cmap=plt.cm.Greys
+                 # levels = [0,threshold_intensity, 1000,5000]
+                 )
+plt.title('Maximum intensity map')
+plt.show()
+
+plt.close()
+
+"""
+Design figure
+"""
+# Make figure to fill with elemental maps
+if vertical_scan == True:
+    fig = plt.figure(constrained_layout=False, figsize = (21,8))
+    gs = gridspec.GridSpec(nrows=2, ncols=6, figure=fig)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[0, 2])
+    ax4 = fig.add_subplot(gs[0, 3])
+    ax5 = fig.add_subplot(gs[0, 4])
+    ax6 = fig.add_subplot(gs[0, 5])
+    ax7 = fig.add_subplot(gs[1, 0])
+    ax8 = fig.add_subplot(gs[1, 1])
+    ax9 = fig.add_subplot(gs[1, 2])
+    ax10 = fig.add_subplot(gs[1, 3])
+    ax11 = fig.add_subplot(gs[1, 4])
+    ax12 = fig.add_subplot(gs[1, 5])
+
+else:
+    fig = plt.figure(constrained_layout=False, figsize = (18,8))
+    gs = gridspec.GridSpec(nrows=3, ncols=3, figure=fig)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[0, 2])
+    ax4 = fig.add_subplot(gs[1, 0])
+    ax5 = fig.add_subplot(gs[1, 1])
+    ax6 = fig.add_subplot(gs[1, 2])
+    ax7 = fig.add_subplot(gs[2, 0])
+    ax8 = fig.add_subplot(gs[2, 1])
+    ax9 = fig.add_subplot(gs[2, 2])
+    #ax10 = fig.add_subplot(gs[3, 0])
+
+"""
+Draw maps
+"""
+
+# Draw elemental maps
+elemental_maps = True
+
+if elemental_maps:
+    map1 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[0]])])
+    # intensity_Si = 5*10**9
+    # map1 = map1/intensity_Si
+    map1.plot(ax=ax1, cmap=plt.cm.Greys)
+
+    map2 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[1]])])
+    # intensity_Zn = 2*10**11
+    # map2 = map2/intensity_Zn
+    map2.plot(ax=ax2, cmap=plt.cm.Greys)
+
+    map3 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[2]])])
+    # intensity_Pb = 2.5*10**10
+    # map3 = map3/intensity_Pb
+    map3.plot(ax=ax3, cmap=plt.cm.Greys)
+
+    map4 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[3]])])
+    map4.plot(ax=ax4, cmap=plt.cm.Greys)# , levels=[0,1000])
+
+    map5 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[4]])])
+    map5.plot(ax=ax5, cmap=plt.cm.Greys) #, levels=[0,8000])
+
+    map6 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[5]])])
+    map6.plot(ax=ax6, cmap=plt.cm.Greys)
+
+    map7 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[6]])])
+    map7.plot(ax=ax7, cmap=plt.cm.Greys)
+
+    map8 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[7]])])
+    map8.plot(ax=ax8, cmap=plt.cm.Greys)
+
+    map9 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[8]])])
+    map9.plot(ax=ax9, cmap=plt.cm.Greys)
+
+    if vertical_scan:
+        map10 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[9]])])
+        map10.plot(ax=ax10, cmap=plt.cm.Greys)
+
+        map11 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[10]])])
+        map11.plot(ax=ax11, cmap=plt.cm.Greys)
+
+        map12 = ds.mapping.isel(bands=[int(el_wavelength_dict[el_visualized[11]])])
+        map12.plot(ax=ax12, cmap=plt.cm.Greys)
+
+    ax1.set_title(el_visualized[0])
+    ax1.invert_yaxis()
+    ax2.set_title(el_visualized[1])
+    ax2.invert_yaxis()
+    ax3.set_title(el_visualized[2])
+    ax3.invert_yaxis()
+    ax4.set_title(el_visualized[3])
+    ax4.invert_yaxis()
+    ax5.set_title(el_visualized[4])
+    ax5.invert_yaxis()
+    ax6.set_title(el_visualized[5])
+    ax6.invert_yaxis()
+    ax7.set_title(el_visualized[6])
+    ax7.invert_yaxis()
+    ax8.set_title(el_visualized[7])
+    ax8.invert_yaxis()
+    ax9.set_title(el_visualized[8])
+    ax9.invert_yaxis()
+    # ax10.set_title(el_visualized[9])
+    # ax11.set_title(el_visualized[10])
+    # ax12.set_title(el_visualized[11])
+
+    if vertical_scan:
+        ax10.set_title(el_visualized[9])
+        ax10.invert_yaxis()
+
+    fig.tight_layout()
+    plt.show()
+
+
+# Make a map of every image
+
+for el in el_visualized:
+
+    # Make figure
+    fig = plt.figure(constrained_layout=False, figsize=(8, 8))
+    gs = gridspec.GridSpec(nrows = 1, ncols = 1, figure = fig)
+    ax1 = fig.add_subplot(gs[0, 0])
+
+    print('el', el)
+    # Define the map in a variable
+    map = ds.mapping.isel(bands=[int(el_wavelength_dict[el])])
+    map.plot(ax=ax1, cmap=plt.cm.Greys, )
+
+    ax1.set_title(el)
+    ax1.invert_yaxis()
+    fig.tight_layout()
+    plt.show()
+
+    name = str(sample[:-3]) + str(el) + '.png'
+
+    fig.savefig(name)
+
+    # Save the map
+    #a.savefig(r'C:\Users\simon\PycharmProjects\automated-mineralogy\libs\Scripts\img\img.png', transparent=False, facecolor='white')
+
+
+"""
+Now make a .GIF from the maps
+"""
+import imageio
+
+if make_gif:
+    gifname = sample[:-3] + "customorder.gif"
+
+
+    with imageio.get_writer(gifname, mode='I', fps=0.5) as writer:
+        filelist = []
+        # el_visualized = ['Cd', 'Ag', 'Ge', 'As', 'Cd', 'Ag', 'As', 'Cd','As']
+        for el in el_visualized:
+            filelist.append(str(sample[:-3]) + str(el) + '.png')
+
+        for filename in filelist:
+            image = imageio.imread(filename)
+            writer.append_data(image)
+
+"""
+Select a pixel and compare with another pixel
+"""
+
+# Try to get a spectrum of a given pixel
+pixel_comparison = True
+second_pixel = False
+
+
+if pixel_comparison:
+    # First pixel (take original data)
+    # plt.axhline(y=0)
+    x1 = 1 #40 # horizontal axis
+    y1 = 1 #120 # vertical axis
+    wavelengths_arr = np.array(ds['bands'])
+    intensities1 = ds.mapping.isel(x=y1, y=x1)
+    plt.plot(wavelengths_arr, intensities1)#, color = 'b')
+    median_intensity = np.median(intensities1)
+    # plt.show()
+
+    # # output = np.column_stack((wavelengths_arr, intensities))
+    # # np.savetxt("test_output.csv", output, delimiter=",")
+
+    # Second pixel
+    if second_pixel:
+        x2 = 50 #70 # horizontal
+        y2 = 20 #140 # vertical
+        intensities3 = ds.mapping.isel(x=y2, y=x2)
+
+        plt.plot(wavelengths_arr, intensities3, color = 'r' )
+
+    plt.xlabel('Wavelength')
+    plt.ylabel('Intensities')
+    # plt.xlim(250, 253)
+    # plt.ylim(0, 20000)
+
+    plt.title('LIBS spectrum')
+    plt.savefig("test.jpg")#, format="jpg")
+    plt.show()
+
+
