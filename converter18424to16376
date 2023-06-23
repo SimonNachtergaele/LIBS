@@ -1,0 +1,31 @@
+"""
+This script converts the nc cubes taken with 5 spectrometers to nc cubes with 4 spectrometers (16376 size)
+"""
+
+import xarray as xr
+
+# Set working directory
+save_path = r"C:\Users\simon\PycharmProjects\automated-mineralogy\libs\Datacubes\Input"
+os.chdir(save_path)
+
+# Define sample name
+sample = "test.nc"
+
+# Load dataset
+ds = xr.open_dataset(sample)
+ds.load()
+print(ds)
+
+# Define dimensions
+print('dimensions')
+dim = ds.dims
+print(dim)
+
+if dim['bands'] == 18424:
+    start_index = 2048
+    end_index = 18424
+
+    sliced_dataset = ds.isel(bands=slice(2048, 18424))
+    print('sliced dataset', sliced_dataset)
+    output_file = sample[:-3] + str('_only_16376.nc')
+    sliced_dataset.to_netcdf(output_file)
